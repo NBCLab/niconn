@@ -191,7 +191,7 @@ def rs_grouplevel(copes, varcopes, output_dir, work_dir):
     from nipype.interfaces.fsl.Info import standard_image
     from interfaces import PtoZ
 
-    def calcres(smoothest_input)
+    def calcres(smoothest_input):
         resels = int(smoothest_input[0]/smoothest_input[1])
 
     grplevelworkflow = pe.Workflow(name="grplevelworkflow")
@@ -241,14 +241,14 @@ def rs_grouplevel(copes, varcopes, output_dir, work_dir):
 
     grplevelworkflow.connect(flameo, 'outputs')
 
-def rs_workflow(rs_data_dir, roi_prefix, roi_mask, work_dir):
+def rs_workflow(rs_data_dir, pid_file, roi_prefix, roi_mask, work_dir):
 
     from nipype.interfaces.base import Bunch
 
     os.makedirs(op.join(work_dir, 'rsfc'))
 
     #get participants
-    ppt_df = pandas.read_csv(rs_data_dir, 'participants.tsv', sep='/t')
+    ppt_df = pandas.read_csv(pid_file, sep='/t')
     for ppt in ppt_df['participant_id']:
         nii_files = os.listdir(op.join(rs_data_dir, ppt, 'func'))
         for nii_fn in nii_files:
