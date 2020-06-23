@@ -3,27 +3,29 @@ import os.path as op
 from nimare.meta.cbma import ALE
 from nimare.dataset import Dataset
 from nimare.correct import FWECorrector
-from neurosynth.base.dataset import download
 from nimare.io import convert_neurosynth_to_dataset
 
 
-def macm_workflow(ns_data_dir, output_dir, mask_fn):
+def macm_workflow(prefix=None, mask=None, output_dir=None, ns_data_dir=None):
 
-    prefix = op.basename(mask_fn).split('.')[0]
-    # download neurosynth dataset if necessary
+    if mask is None or not op.isfile(mask):
+        raise Exception('A valid mask is required for input!')
+
+    if ns_data_dir is None:
+        raise Exception('A valid directory is required for downloading Neurosynth data!')
+
+    if prefix is None:
+        prefix = op.basename(mask_fn).split('.')[0]
+
+    if output_dir is None:
+        output_dir = op.dirname(op.abspath(mask))
+
     dataset_file = op.join(ns_data_dir, 'neurosynth_dataset.pkl.gz')
 
+    # download neurosynth dataset if necessary
     if not op.isfile(dataset_file):
-        if not op.isdir(ns_data_dir):
-            os.mkdir(ns_data_dir)
-        download(ns_data_dir, unpack=True)
-        ###############################################################################
-        # Convert Neurosynth database to NiMARE dataset file
-        # --------------------------------------------------
-        dset = convert_neurosynth_to_dataset(
-            op.join(ns_data_dir, 'database.txt'),
-            op.join(ns_data_dir, 'features.txt'))
-        dset.save(dataset_file)
+        from .datasets import neurosyth.neurosynth_download
+        neurosynth_download(ns_data_dir)
 
     dset = Dataset.load(dataset_file)
     mask_ids = dset.get_studies_by_mask(mask_fn)
