@@ -7,7 +7,7 @@ Additional interfaces required for workflow. To be upstreamed into Nipype.
 Shamelessly taken from https://github.com/poldracklab/ds003-post-fMRIPrep-analysis/blob/master/interfaces.py
 """
 from nipype.interfaces.fsl.base import FSLCommand, FSLCommandInputSpec
-from nipype.interfaces.base import traits, TraitedSpec
+from nipype.interfaces.base import File, traits, TraitedSpec, isdefined
 
 
 class PtoZInputSpec(FSLCommandInputSpec):
