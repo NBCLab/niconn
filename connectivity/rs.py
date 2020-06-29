@@ -270,6 +270,7 @@ def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
     for ppt in ppt_df['participant_id']:
         ppt = str(ppt)
         nii_files = sorted(glob(op.join(rs_data_dir, ppt, 'MNINonLinear', 'Results', 'rfMRI_REST*', 'rfMRI_REST*_hp2000_clean.nii.gz')))
+        nii_files = [x for x in nii_files if '7T' not in x]
         for nii_fn in nii_files:
 
             #check to see if smoothed data exists
