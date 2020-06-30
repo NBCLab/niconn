@@ -169,7 +169,7 @@ def rs_secondlevel(copes, varcopes, dofs, output_dir, work_dir):
     level2workflow.connect([(fixedfx, datasink, [('outputspec.copes','copes'),
                                                  ('outputspec.varcopes','varcopes'),
                                                  ('outputspec.zstats','zstats'),
-                                                 ('gendof.dof_volume', 'dofs')])])
+                                                 ('gendofvolume.dof_volume', 'dofs')])])
 
 
 
