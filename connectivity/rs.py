@@ -180,7 +180,7 @@ def rs_secondlevel(copes, varcopes, dofs, output_dir, work_dir):
     files_to_copy = glob(op.join(work_dir, '*', '_flameo0', '*'))
     for tmp_fn in files_to_copy:
         shutil.copy(tmp_fn, output_dir)
-
+    shutil.copy(op.join(work_dir, 'dofs', 'dof_file.nii.gz'), output_dir)
     shutil.rmtree(work_dir)
 
 
