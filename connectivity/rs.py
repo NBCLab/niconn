@@ -227,8 +227,9 @@ def rs_grouplevel(copes, varcopes, dofs, output_dir, work_dir):
     grplevelworkflow.connect(model, 'design_mat', flameo, 'design_file')
 
     smoothest = pe.Node(SmoothEstimate(), name='smooth_estimate')
-    grplevelworkflow.connect(flameo, 'zstats', smoothest, 'zstat_file')
+    grplevelworkflow.connect(flameo, 'zstats', smoothest, 'residual_fit_file')
     smoothest.inputs.mask_file = Info.standard_image('MNI152_T1_2mm_brain_mask.nii.gz')
+    smoothest.inputs.dof = len(dofs)-1
 
     cluster = pe.Node(Cluster(), name='cluster')
     ptoz = pe.Node(PtoZ(), name='ptoz')
