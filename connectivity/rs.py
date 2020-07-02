@@ -18,8 +18,8 @@ def pickfirst(files):
         return files
 
 
-def calcres(smoothest_input):
-    resels = int(228453/smoothest_input)
+def calcres(volume, resels):
+    resels = int(volume/resels)
     return resels
 
 
@@ -88,12 +88,19 @@ def rs_firstlevel(unsmooth_fn, smooth_fn, roi_mask, output_dir, work_dir):
     meants = fsl.utils.ImageMeants()
     meants.inputs.in_file = unsmooth_fn
     meants.inputs.mask = roi_mask
-    meants.inputs.out_file = op.join(work_dir, '{0}_{1}.txt'.format(unsmooth_fn.split('.')[0], op.basename(roi_mask).split('.')[0]))
-    meants.cmdline
+    meants.inputs.out_file = op.join(work_dir, '{0}_{1}.txt'.format(op.basename(unsmooth_fn).split('.')[0], op.basename(roi_mask).split('.')[0]))
     meants.run()
 
-    roi_ts = np.atleast_2d(np.loadtxt(op.join(work_dir, '{0}_{1}.txt'.format(unsmooth_fn.split('.')[0], op.basename(roi_mask).split('.')[0]))))
-    subject_info = Bunch(conditions=['mean'], onsets=[list(np.arange(0,0.72*len(roi_ts[0]),0.72))], durations=[[0.72]], amplitudes=[np.ones(len(roi_ts[0]))], regressor_names=['roi'], regressors=[roi_ts[0]])
+    mask_fn = "_".join(op.basename(smooth_fn).split('.')[0].split('_')[:-1])
+    meants.inputs.mask = op.join(op.dirname(smooth_fn), '{prefix}_mask.nii.gz'.format(prefix=mask_fn))
+    meants.inputs.out_file = op.join(work_dir, '{0}_gsr.txt'.format(op.basename(unsmooth_fn).split('.')[0]))
+    meants.run()
+
+
+    roi_ts = np.atleast_2d(np.loadtxt(op.join(work_dir, '{0}_{1}.txt'.format(op.basename(unsmooth_fn).split('.')[0], op.basename(roi_mask).split('.')[0]))))
+    gsr_ts = np.atleast_2d(np.loadtxt(op.join(work_dir, '{0}_gsr.txt'.format(op.basename(unsmooth_fn).split('.')[0]))))
+
+    subject_info = Bunch(conditions=['mean'], onsets=[list(np.arange(0,0.72*len(roi_ts[0]),0.72))], durations=[[0.72]], amplitudes=[np.ones(len(roi_ts[0]))], regressor_names=['roi', 'gsr'], regressors=[roi_ts[0], gsr_ts[0]])
 
     level1_workflow = pe.Workflow(name='level1flow')
 
@@ -114,7 +121,7 @@ def rs_firstlevel(unsmooth_fn, smooth_fn, roi_mask, output_dir, work_dir):
     modelfit.inputs.inputspec.bases = {'none': {'none': None}}
     modelfit.inputs.inputspec.model_serial_correlations = False
     modelfit.inputs.inputspec.film_threshold = 1000
-    contrasts = [['corr', 'T', ['mean', 'roi'], [0,1]]]
+    contrasts = [['corr', 'T', ['mean', 'roi', 'gsr'], [0,1,0]]]
     modelfit.inputs.inputspec.contrasts = contrasts
 
     """
@@ -187,6 +194,7 @@ def rs_secondlevel(copes, varcopes, dofs, output_dir, work_dir):
 def rs_grouplevel(copes, varcopes, dofs, output_dir, work_dir):
 
     from nipype.interfaces.fsl.model import MultipleRegressDesign
+    from nipype.interfaces.utility import Function
     from nipype.interfaces.fsl.model import FLAMEO
     from nipype.interfaces.fsl.model import SmoothEstimate
     from connectivity.interfaces import Cluster
@@ -233,9 +241,12 @@ def rs_grouplevel(copes, varcopes, dofs, output_dir, work_dir):
 
     cluster = pe.Node(Cluster(), name='cluster')
     ptoz = pe.Node(PtoZ(), name='ptoz')
-    ptoz.inputs.inputspec.pvalue = 0.001
+    ptoz.inputs.pvalue = 0.001
+    calculate_resels = pe.Node(Function(input_names=["volume", "resels"], output_names=["resels"], function=calcres), name="calcres")
     grplevelworkflow.connect(smoothest, 'resels', cluster, 'resels')
-    grplevelworkflow.connect(smoothest, ('resels', calcres), ptoz, 'resels')
+    grplevelworkflow.connect(smoothest, 'resels', calculate_resels, 'resels')
+    grplevelworkflow.connect(smoothest, 'volume', calculate_resels, 'volume')
+    grplevelworkflow.connect(calculate_resels, 'resels', ptoz, 'resels')
     grplevelworkflow.connect(ptoz, 'zstat', cluster, 'threshold')
     cluster.inputs.connectivity = 26
     cluster.inputs.out_threshold_file = True
