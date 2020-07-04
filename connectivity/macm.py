@@ -35,7 +35,7 @@ def macm(prefix=None, mask=None, output_dir=None, ns_data_dir=None):
     ale = ALE(kernel__fwhm=15)
     ale.fit(maskdset)
 
-    corr = FWECorrector(method='permutation', n_iters=10, n_cores=-1, voxel_thresh=0.001)
+    corr = FWECorrector(method='permutation', n_iters=10000, n_cores=-1, voxel_thresh=0.001)
     cres = corr.transform(ale.results)
     cres.save_maps(output_dir=output_dir, prefix=prefix)
 
