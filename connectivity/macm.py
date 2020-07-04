@@ -4,8 +4,6 @@ from nimare.meta.cbma import ALE
 from nimare.dataset import Dataset
 from nimare.correct import FWECorrector
 
-import sys
-sys.path.append('/Users/miriedel/Desktop/GitHub/niconn/')
 
 def macm(prefix=None, mask=None, output_dir=None, ns_data_dir=None):
 
