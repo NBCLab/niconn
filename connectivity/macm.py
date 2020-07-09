@@ -3,7 +3,7 @@ import os.path as op
 from nimare.meta.cbma import ALE
 from nimare.dataset import Dataset
 from nimare.correct import FWECorrector
-
+import pickle
 
 def macm(prefix=None, mask=None, output_dir=None, ns_data_dir=None):
 

@@ -293,11 +293,9 @@ def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
         for nii_fn in nii_files:
 
             #check to see if smoothed data exists
-            smooth_fn = op.join(rs_data_dir, 'derivatives', 'smoothed', ppt, '{0}_smooth.nii.gz'.format(op.basename(nii_fn).split('.')[0]))
-
+            tmp_output_dir = op.join(rs_data_dir, 'derivatives', 'smoothed', ppt)
+            smooth_fn = op.join(tmp_output_dir, '{0}_smooth.nii.gz'.format(op.basename(nii_fn).split('.')[0]))
             if not op.isfile(smooth_fn):
-
-                tmp_output_dir = op.join(rs_data_dir, 'derivatives', 'smoothed', ppt)
                 if not op.isdir(tmp_output_dir):
                     os.makedirs(tmp_output_dir)
                 nii_work_dir = op.join(work_dir, 'rsfc', ppt, op.basename(nii_fn).split('.')[0])
@@ -305,13 +303,16 @@ def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
 
             #run analysis
             tmp_output_dir = op.join(rs_data_dir, 'derivatives', coords_str, ppt, op.basename(nii_fn).split('.')[0])
-            if not op.isdir(tmp_output_dir):
-                os.makedirs(tmp_output_dir)
+            if not op.isfile(op.join(tmp_output_dir, 'cope1.nii.gz')):
+                if not op.isdir(tmp_output_dir):
+                    os.makedirs(tmp_output_dir)
                 nii_work_dir = op.join(work_dir, 'rsfc', coords_str, ppt, op.basename(nii_fn).split('.')[0])
+                if not op.isdir(nii_work_dir):
+                    os.makedirs(nii_work_dir)
                 rs_firstlevel(nii_fn, smooth_fn, roi_mask_fn, tmp_output_dir, nii_work_dir)
 
         output_dir = op.join(rs_data_dir, 'derivatives', coords_str, ppt)
-        if not op.isfile(op.join(output_dir, 'zstat1.nii.gz')):
+        if not op.isfile(op.join(output_dir, 'cope1.nii.gz')):
 
             if len(nii_files)>1:
 
