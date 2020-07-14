@@ -3,7 +3,7 @@ import os.path as op
 import pandas as pd
 import numpy as np
 import nibabel as nib
-import boto3
+import requests
 from connectivity.macm import macm_workflow
 from connectivity.macm import macm
 from connectivity.rsfc import rs_workflow
@@ -54,14 +54,6 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
     rsfc_work_dir = op.join(work_dir, 'rsfc')
     os.makedirs(rsfc_work_dir)
 
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket('niconn')
-    all_items = [obj.key for obj in bucket.objects.all()]
-    all_items.remove('rsfc/')
-    all_items.remove('macm/')
-    rsfc_items = [x for x in all_items if 'rsfc' in x]
-    macm_items = [x for x in all_items if 'macm' in x]
-
     img = nib.load(mask_img)
 
     inds = np.nonzero(img.get_data())
@@ -69,7 +61,7 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
 
     macm_suffix = 'logp_level-voxel_corr-FWE_method-permutation'
     rsfc_suffix = 'thresh_zstat'
-    
+
     for tmpind in inds:
         vox = np.dot(img.affine, np.append(tmpind, 1))
         vox = vox[0:3].astype(int)
@@ -77,7 +69,9 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
         coords_str = '{x}_{y}_{z}'.format(x=str(vox[0]), y=str(vox[1]), z=str(vox[2]))
 
         #macms first
-        if 'macm/{coords_str}/{coords_str}_z.nii.gz'.format(coords_str=coords_str) not in macm_items:
+        macm_get_request = requests.get('https://niconn.s3.amazonaws.com/macm/{coords_str}/{coords_str}_{macm_suffix}.nii.gz'.format(coords_str=coords_str, macm_suffix=macm_suffix))
+
+        if macm_get_request.status_code == 404:
 
             tmp_work_dir = op.join(macm_work_dir, coords_str)
             os.makedirs(tmp_work_dir)
@@ -88,13 +82,20 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
             for tmp_suffix in suffix:
                 tmp_fn = op.join(tmp_work_dir, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=tmp_suffix))
                 aws_fn = op.join('macm', coords_str, op.basename(tmp_fn))
-                s3.Bucket('niconn').upload_file(tmp_fn, aws_fn)
+                #s3.Bucket('niconn').upload_file(tmp_fn, aws_fn)
+                macm_put_request = requests.post('https://niconn.s3.amazonaws.com/', files={'file': open(tmp_fn, 'rb')}, data={'key': aws_fn})
 
             os.rmtree(tmp_work_dir)
 
-        s3.Bucket('niconn').download_file(op.join('macm', coords_str, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=macm_suffix)), op.join(macm_work_dir, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=macm_suffix)))
+        macm_get_request = requests.get('https://niconn.s3.amazonaws.com/macm/{coords_str}/{coords_str}_{macm_suffix}.nii.gz'.format(coords_str=coords_str, macm_suffix=macm_suffix))
 
-        if 'rsfc/{coords_str}/{coords_str}_z.nii.gz'.format(coords_str=coords_str) not in rsfc_items:
+        with open(op.join(macm_work_dir, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=macm_suffix)), 'wb') as f:
+            f.write(macm_get_request.content)
+
+        #now resting-state
+        rsfc_get_request = requests.get('https://niconn.s3.amazonaws.com/rsfc/{coords_str}/{coords_str}_{rsfc_suffix}.nii.gz'.format(coords_str=coords_str, rsfc_suffix=rsfc_suffix))
+
+        if rsfc_get_request.status_code == 404:
 
             tmp_work_dir = op.join(rsfc_work_dir, coords_str)
             os.makedirs(tmp_work_dir)
@@ -102,6 +103,11 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
             rs_workflow(x=vox[0], y=vox[1], z=vox[2], rs_data_dir=rs_data_dir, output_dir=tmp_work_dir)
 
             os.rmtree(tmp_work_dir)
+
+        rsfc_get_request = requests.get('https://niconn.s3.amazonaws.com/rsfc/{coords_str}/{coords_str}_{rsfc_suffix}.nii.gz'.format(coords_str=coords_str, rsfc_suffix=rsfc_suffix))
+
+        with open(op.join(rsfc_work_dir, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=rsfc_suffix)), 'wb') as f:
+            f.write(rsfc_request.content)
 
     #evaluate MACMs now
     macm_img_list=sorted(glob(op.join(macm_work_dir, '*_{suffix}.nii.gz'.format(suffix=macm_suffix))))
