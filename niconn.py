@@ -22,19 +22,17 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
     if output_dir is None:
         output_dir = op.join(op.dirname(op.abspath(mask_img)), prefix)
 
-    if not op.isdir(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     macm_out_dir = op.join(output_dir, 'macm')
-    os.makedirs(macm_out_dir)
+    os.makedirs(macm_out_dir, exist_ok=True)
     rsfc_out_dir = op.join(output_dir, 'rsfc')
-    os.makedirs(rsfc_out_dir)
+    os.makedirs(rsfc_out_dir, exist_ok=True)
 
     if ns_data_dir is None:
         ns_data_dir = op.join(output_dir, 'neurosynth_dataset')
 
-    if not op.isdir(ns_data_dir):
-        os.makedirs(ns_data_dir)
+    os.makedirs(ns_data_dir, exist_ok=True)
 
     if rs_data_dir is None:
         rs_data_dir = op.join(output_dir, 'hcp1200_resting-state')
@@ -46,13 +44,12 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
     if work_dir is None:
         work_dir = op.join(output_dir, 'niconn-work')
 
-    if not op.isdir(work_dir):
-        os.makedirs(work_dir)
+    os.makedirs(work_dir, exist_ok=True)
 
     macm_work_dir = op.join(work_dir, 'macm')
-    os.makedirs(macm_work_dir)
+    os.makedirs(macm_work_dir, exist_ok=True)
     rsfc_work_dir = op.join(work_dir, 'rsfc')
-    os.makedirs(rsfc_work_dir)
+    os.makedirs(rsfc_work_dir, exist_ok=True)
 
     img = nib.load(mask_img)
 
@@ -74,7 +71,7 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
         if macm_get_request.status_code == 404:
 
             tmp_work_dir = op.join(macm_work_dir, coords_str)
-            os.makedirs(tmp_work_dir)
+            os.makedirs(tmp_work_dir, exist_ok=True)
 
             macm_workflow(x=vox[0], y=vox[1], z=vox[2], ns_data_dir=ns_data_dir, output_dir=tmp_work_dir)
 
@@ -82,7 +79,6 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
             for tmp_suffix in suffix:
                 tmp_fn = op.join(tmp_work_dir, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=tmp_suffix))
                 aws_fn = op.join('macm', coords_str, op.basename(tmp_fn))
-                #s3.Bucket('niconn').upload_file(tmp_fn, aws_fn)
                 macm_put_request = requests.post('https://niconn.s3.amazonaws.com/', files={'file': open(tmp_fn, 'rb')}, data={'key': aws_fn})
 
             os.rmtree(tmp_work_dir)
@@ -98,9 +94,15 @@ def niconn_workflow(mask_img=None, prefix=None, output_dir=None, ns_data_dir=Non
         if rsfc_get_request.status_code == 404:
 
             tmp_work_dir = op.join(rsfc_work_dir, coords_str)
-            os.makedirs(tmp_work_dir)
+            os.makedirs(tmp_work_dir, exist_ok=True)
 
             rs_workflow(x=vox[0], y=vox[1], z=vox[2], rs_data_dir=rs_data_dir, output_dir=tmp_work_dir)
+
+            suffix = ['tstat1', 'tstat1_thr001', 'vox_corrp']
+            for tmp_suffix in suffix:
+                tmp_fn = op.join(tmp_work_dir, '{coords_str}_{suffix}.nii.gz'.format(coords_str=coords_str, suffix=tmp_suffix))
+                aws_fn = op.join('rsfc', coords_str, op.basename(tmp_fn))
+                macm_put_request = requests.post('https://niconn.s3.amazonaws.com/', files={'file': open(tmp_fn, 'rb')}, data={'key': aws_fn})
 
             os.rmtree(tmp_work_dir)
 

@@ -128,7 +128,7 @@ def rs_firstlevel(smooth_fn, roi_mask, output_dir, work_dir):
     shutil.rmtree(work_dir)
 
 
-def rs_secondlevel(z, output_dir, work_dir):
+def rs_secondlevel(r, output_dir, work_dir):
 
     from nipype.interfaces import fsl as fsl
     import nibabel as nib
@@ -136,7 +136,7 @@ def rs_secondlevel(z, output_dir, work_dir):
 
 
     merger = fsl.utils.Merge()
-    merger.inputs.in_files = z
+    merger.inputs.in_files = r
     merger.inputs.dimension = 't'
     merger.inputs.merged_file = op.join(work_dir, 'r_merge.nii.gz')
     merger.run()
@@ -178,7 +178,7 @@ def rs_secondlevel(z, output_dir, work_dir):
     shutil.rmtree(work_dir)
 
 
-def rs_grouplevel(z, output_dir, work_dir):
+def rs_grouplevel(z, prefix, output_dir, work_dir):
 
     from nipype.interfaces.fsl.model import Randomise
     from nipype.interfaces import fsl as fsl
@@ -204,7 +204,6 @@ def rs_grouplevel(z, output_dir, work_dir):
 
     randomise = Randomise()
     randomise.inputs.in_file = op.join(work_dir, 'z_merge.nii.gz')
-    #randomise.inputs.demean = True
     randomise.inputs.mask = op.join(work_dir, 'mask.nii.gz')
     randomise.inputs.one_sample_group_mean = True
     randomise.inputs.raw_stats_imgs = True
@@ -226,21 +225,25 @@ def rs_grouplevel(z, output_dir, work_dir):
     masker.run()
 
     #copy data to directory vox_corrp_tstat1.nii.gz
-    shutil.copyfile(op.join(work_dir, 'randomise_tstat1.nii.gz'), op.join(output_dir, 'tstat1.nii.gz'))
-    shutil.copyfile(op.join(work_dir, 'randomise_vox_corrp_tstat1.nii.gz'), op.join(output_dir, 'vox_corrp.nii.gz'))
-    shutil.copyfile(op.join(work_dir, 'randomise_tstat1_thr001.nii.gz'), op.join(output_dir, 'tstat1_thr001.nii.gz'))
+    shutil.copyfile(op.join(work_dir, 'randomise_tstat1.nii.gz'), op.join(output_dir, '{prefix}_tstat1.nii.gz'.format(prefix=prefix)))
+    shutil.copyfile(op.join(work_dir, 'randomise_vox_corrp_tstat1.nii.gz'), op.join(output_dir, '{prefix}_vox_corrp.nii.gz'.format(prefix=prefix)))
+    shutil.copyfile(op.join(work_dir, 'randomise_tstat1_thr001.nii.gz'), op.join(output_dir, '{prefix}_tstat1_thr001.nii.gz'.format(prefix=prefix)))
 
     #shutil.rmtree(work_dir)
 
 
-def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
+def rs_workflow(coords=None, mask=None, rs_data_dir=None, work_dir=None):
 
-    from utils import make_sphere
+    if coords is not None:
+        from utils import make_sphere
 
-    coords_str = '{x}_{y}_{z}'.format(x=str(x), y=str(y), z=str(z))
-    roi_mask_fn = op.join(work_dir, '{coords_str}.nii.gz'.format(coords_str=coords_str))
+        coords_str = '{x}_{y}_{z}'.format(x=str(coords[0]), y=str(coords[1]), z=str(coords[2]))
+        roi_mask_fn = op.join(work_dir, '{coords_str}.nii.gz'.format(coords_str=coords_str))
 
-    make_sphere(x, y, z, work_dir)
+        make_sphere(coords[0], coords[1], coords[2], work_dir)
+
+    elif mask is not None:
+        roi_mask_fn = mask
 
     from nipype.interfaces.base import Bunch
     import pandas as pd
@@ -264,7 +267,7 @@ def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
 
             #run analysis
             tmp_output_dir = op.join(rs_data_dir, 'derivatives', coords_str, ppt, op.basename(nii_fn).split('.')[0])
-            if not op.isfile(op.join(tmp_output_dir, 'z.nii.gz')):
+            if not op.isfile(op.join(tmp_output_dir, 'r.nii.gz')):
                 if not op.isdir(tmp_output_dir):
                     os.makedirs(tmp_output_dir)
                 nii_work_dir = op.join(work_dir, 'rsfc', coords_str, ppt, op.basename(nii_fn).split('.')[0])
@@ -275,17 +278,10 @@ def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
         output_dir = op.join(rs_data_dir, 'derivatives', coords_str, ppt)
         if not op.isfile(op.join(output_dir, 'z.nii.gz')):
 
-            if len(nii_files)>1:
-
-                z = [sorted(glob(op.join(rs_data_dir, 'derivatives', coords_str, ppt, '*', 'z.nii.gz')))]
-                output_dir = op.join(rs_data_dir, 'derivatives', coords_str, ppt)
-                nii_work_dir = op.join(work_dir, 'rsfc', coords_str, ppt)
-                rs_secondlevel(z, output_dir, nii_work_dir)
-
-            else:
-
-                stat_files = sorted(glob(op.join(rs_data_dir, 'derivatives', coords_str, ppt, '*', 'z.nii.gz')))
-                shutil.copy(stat_files[0], output_dir)
+            r = [sorted(glob(op.join(rs_data_dir, 'derivatives', coords_str, ppt, '*', 'r.nii.gz')))]
+            output_dir = op.join(rs_data_dir, 'derivatives', coords_str, ppt)
+            nii_work_dir = op.join(work_dir, 'rsfc', coords_str, ppt)
+            rs_secondlevel(r, output_dir, nii_work_dir)
 
     z = sorted(glob(op.join(rs_data_dir, 'derivatives', coords_str, '*', 'z.nii.gz')))
 
@@ -297,4 +293,4 @@ def rs_workflow(x=None, y=None, z=None, rs_data_dir=None, work_dir=None):
     if not op.isdir(nii_work_dir):
         os.makedirs(nii_work_dir)
 
-    rs_grouplevel(z, output_dir, nii_work_dir)
+    rs_grouplevel(z, coords_str, output_dir, nii_work_dir)
