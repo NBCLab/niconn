@@ -32,9 +32,11 @@ def download_ppt(hcp_data_dir=None, pid=None):
 
     os.chdir(hcp_data_dir)
     for tmp_pid in pid:
-        install(op.join(hcp_data_dir, tmp_pid, 'MNINonLinear', 'Results'))
-        tmp_rs_dir = sorted(glob(op.join(hcp_data_dir, tmp_pid, 'MNINonLinear', 'Results', 'rfMRI_*')))
+        #install(op.join(hcp_data_dir, tmp_pid, 'MNINonLinear', 'Results'))
+        tmp_rs_dir = sorted(glob(op.join(hcp_data_dir, str(tmp_pid), 'MNINonLinear', 'Results', 'rfMRI_*')))
         tmp_rs_dir = [x for x in tmp_rs_dir if '7T' not in x]
         for tmp_rs_run in tmp_rs_dir:
             tmp_rs_run = tmp_rs_run.split('/')[-1]
-            get(op.join(hcp_data_dir, tmp_pid, 'MNINonLinear', 'Results', tmp_rs_run, '{0}_hp2000_clean.nii.gz'.format(tmp_rs_run)))
+            #get(op.join(hcp_data_dir, tmp_pid, 'MNINonLinear', 'Results', tmp_rs_run, '{0}_hp2000_clean.nii.gz'.format(tmp_rs_run)))
+            get(op.join(hcp_data_dir, str(tmp_pid), 'MNINonLinear', 'Results', tmp_rs_run, '{0}_CSF.txt'.format(tmp_rs_run)))
+            get(op.join(hcp_data_dir, str(tmp_pid), 'MNINonLinear', 'Results', tmp_rs_run, '{0}_WM.txt'.format(tmp_rs_run)))

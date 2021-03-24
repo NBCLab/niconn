@@ -23,4 +23,4 @@ def make_sphere(x, y, z, output_dir):
                                kernel_shape = "sphere",
                                kernel_size = 4,
                                out_file = tmp_roi_fn)
-    di.run()
+    #di.run()
