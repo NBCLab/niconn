@@ -42,15 +42,9 @@ def rs_preprocess(in_file, fwhm, work_dir, output_dir):
     immask = pe.Node(interface=fsl.ImageMaths(op_string = '-abs -bin -Tmin'), name='immask')
     rs_preproc_workflow.connect(inputnode, 'func', immask, 'in_file')
 
-    #do the smoothing
-    smooth = create_susan_smooth()
-    rs_preproc_workflow.connect(inputnode, 'func', smooth, 'inputnode.in_files')
-    rs_preproc_workflow.connect(inputnode, 'fwhm', smooth, 'inputnode.fwhm')
-    rs_preproc_workflow.connect(immask, 'out_file', smooth, 'inputnode.mask_file')
-
     #calculate mean image from smoothed data, for adding back after GSR
     immean = pe.Node(interface=fsl.ImageMaths(op_string = '-Tmean'), name='immean')
-    rs_preproc_workflow.connect(smooth.get_node('smooth'), ('smoothed_file', pickfirst), immean, 'in_file')
+    rs_preproc_workflow.connect(inputnode, 'func', immean, 'in_file')
 
     #get time-series for GSR
     meants = pe.Node(interface=fsl.utils.ImageMeants(), name='meants')
@@ -60,7 +54,7 @@ def rs_preprocess(in_file, fwhm, work_dir, output_dir):
     #removing global signal
     glm = pe.Node(interface=GLM(), name='glm')
     glm.inputs.out_res_name = op.join(work_dir, 'res4d.nii.gz')
-    rs_preproc_workflow.connect(smooth.get_node('smooth'), ('smoothed_file', pickfirst), glm, 'in_file')
+    rs_preproc_workflow.connect(inputnode, 'func', glm, 'in_file')
     rs_preproc_workflow.connect(immask, 'out_file', glm, 'mask')
     rs_preproc_workflow.connect(meants, 'out_file', glm, 'design')
 
@@ -69,22 +63,32 @@ def rs_preprocess(in_file, fwhm, work_dir, output_dir):
     rs_preproc_workflow.connect(glm, 'out_res', maths, 'in_file')
     rs_preproc_workflow.connect(immean, 'out_file', maths, 'operand_file')
 
+    #do the smoothing
+    smooth = create_susan_smooth()
+    rs_preproc_workflow.connect(maths, 'out_file', smooth, 'inputnode.in_files')
+    rs_preproc_workflow.connect(inputnode, 'fwhm', smooth, 'inputnode.fwhm')
+    rs_preproc_workflow.connect(immask, 'out_file', smooth, 'inputnode.mask_file')
+
     datasink = pe.Node(nio.DataSink(), name='sinker')
     datasink.inputs.base_directory = work_dir
 
     rs_preproc_workflow.connect(maths, 'out_file', datasink, 'gsr')
     rs_preproc_workflow.connect(immask, 'out_file', datasink, 'mask')
+    rs_preproc_workflow.connect(smooth.get_node('smooth'), ('smoothed_file', pickfirst), datasink, 'gsr_smooth')
 
     rs_preproc_workflow.run()
 
     #copy data to directory
     gsr_fn = glob(op.join(work_dir, 'gsr', '*.nii.gz'))[0]
     mask_fn = glob(op.join(work_dir, 'mask', '*.nii.gz'))[0]
-    gsr_fn2 = op.join(output_dir, '{0}_smooth.nii.gz'.format(op.basename(in_file).split('.')[0]))
+    gsr_smooth_fn = glob(op.join(work_dir, 'gsr_smooth', '*', '*.nii.gz'))[0]
+    gsr_fn2 = op.join(output_dir, '{0}.nii.gz'.format(op.basename(in_file).split('.')[0]))
     mask_fn2 = op.join(output_dir, '{0}_mask.nii.gz'.format(op.basename(in_file).split('.')[0]))
+    gsr_smooth_fn2 = op.join(output_dir, '{0}_smooth.nii.gz'.format(op.basename(in_file).split('.')[0]))
 
     shutil.copyfile(gsr_fn, gsr_fn2)
     shutil.copyfile(mask_fn, mask_fn2)
+    shutil.copyfile(gsr_smooth_fn, gsr_smooth_fn2)
 
     shutil.rmtree(work_dir)
 
